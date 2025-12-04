@@ -80,7 +80,9 @@ let csrfToken: string | null = null;
   }
   runtimeConfig = config;
   csrfToken = token;
-  setRunCount(0);
+  if (existingConfig === null) {
+    setRunCount(0); // fresh run
+  }
 
   await waitForItems();
 
@@ -99,9 +101,9 @@ let csrfToken: string | null = null;
     window.scrollTo(0, document.body.scrollHeight);
     await sleep(DELAY);
   }
-  const total = getRunCount();
   clearSavedConfig();
   clearRunCount();
+  const total = getRunCount();
   alert(`No more matching submissions found. Total affected: ${total}. Filter used: ${config.summary}`);
 })();
 
@@ -147,7 +149,7 @@ async function deleteNext(config: DeleteConfig, token: string): Promise<boolean>
 }
 
 async function graphqlPostRequest(body: string): Promise<Response> {
-  const response = await fetch("https://www.reddit.com/svc/shreddit/graphql", {
+  const response = await fetch("/svc/shreddit/graphql", {
     "credentials": "include",
     "headers": {
       "User-Agent": navigator.userAgent,
@@ -507,7 +509,9 @@ async function waitForItems(timeoutMs: number = 8000, intervalMs: number = 400):
 async function loadMore(): Promise<boolean> {
   const nextLink = document.querySelector(".next-button a, a[rel~='next']") as HTMLAnchorElement | null;
   if (nextLink && nextLink.href) {
-    window.location.href = nextLink.href;
+    const url = new URL(nextLink.href);
+    url.searchParams.set("count", String(getRunCount()));
+    window.location.href = url.toString();
     return true; // will navigate
   }
   for (let i = 0; i < SCROLL_BURSTS; i++) {

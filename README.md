@@ -24,10 +24,12 @@ Two companion userscripts help you bulk-remove Reddit posts and comments:
 3. The script scrolls, processes matches, paginates old Reddit, and reports a total affected count at completion.
 
 ## Building
-- Edit the TypeScript sources and run `npx tsc` (tsconfig includes both scripts).
-- No external dependencies; targets ES2020 + DOM libs.
+- Edit the TypeScript sources and run `npx tsc` (tsconfig includes both scripts). No external dependencies; targets ES2020 + DOM libs.
+- Lint the generated scripts with `npx eslint reDeleteItUI.js reDeleteIt.js` (globals configured for browser/userscript usage).
 
 ## Tips
 - Start with dry run to confirm targeting.
 - NSFW-only filtering depends on page metadata; if you see misses, capture a sample element to refine selectors.
 - For the UI script, local storage keeps settings across tabs; session storage keeps them per tab.
+- Old Reddit pagination: the script rewrites the `next` link’s `count` to match the number of processed items so offsets stay accurate even after deletions.
+- Final alerts show total affected items; totals persist across multi-page runs on old Reddit.***

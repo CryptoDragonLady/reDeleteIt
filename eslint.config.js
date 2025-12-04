@@ -1,0 +1,35 @@
+export default [
+  {
+    files: ["*.js"],
+    ignores: ["eslint.config.js"],
+    languageOptions: {
+      ecmaVersion: 2020,
+      sourceType: "script",
+      globals: {
+        window: "readonly",
+        document: "readonly",
+        console: "readonly",
+        alert: "readonly",
+        confirm: "readonly",
+        prompt: "readonly",
+        fetch: "readonly",
+        URL: "readonly",
+        sessionStorage: "readonly",
+        localStorage: "readonly",
+        setTimeout: "readonly",
+        clearTimeout: "readonly",
+        setInterval: "readonly",
+        clearInterval: "readonly",
+        navigator: "readonly",
+        location: "readonly",
+      },
+    },
+    rules: {
+      "no-undef": "error",
+      "no-unused-vars": ["warn", { args: "none", varsIgnorePattern: "^_" }],
+      "no-unreachable": "error",
+      "no-console": "off",
+      "no-alert": "off",
+    },
+  },
+];

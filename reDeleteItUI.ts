@@ -16,6 +16,7 @@
 const UI_DELAY = 800;
 const UI_MAX_EMPTY_RUNS = 5;
 const UI_SESSION_KEY = "redDeleteItUIConfig";
+const UI_RUN_COUNT_KEY = "redDeleteItUIRunCount";
 const UI_SCROLL_BURSTS = 3;
 
 type UIDeleteMode = "all" | "older" | "newer";
@@ -36,9 +37,8 @@ interface UIConfig extends UIDeleteConfig {
   runOnLoad: boolean;
 }
 
-let uiRuntimeConfig: UIConfig | null = null;
-let uiCsrfToken: string | null = null;
 let uiIsRunning = false;
+let uiDeletedCount = 0;
 
 const defaultConfig: UIConfig = {
   mode: "all",
@@ -64,8 +64,6 @@ bootstrap();
 async function bootstrap(): Promise<void> {
   const saved = loadConfigUI();
   if (saved?.runOnLoad) {
-    saved.runOnLoad = false;
-    saveConfigUI(saved);
     startRun(saved);
   }
   injectLauncher();
@@ -278,7 +276,7 @@ function getProfileUrl(): string | null {
 async function startRun(config: UIConfig): Promise<void> {
   if (uiIsRunning) return;
   uiIsRunning = true;
-  uiRuntimeConfig = config;
+  uiDeletedCount = getRunCountUI();
 
   const token = getCSRFTokenUI();
   if (token === null) {
@@ -286,7 +284,6 @@ async function startRun(config: UIConfig): Promise<void> {
     uiIsRunning = false;
     return;
   }
-  uiCsrfToken = token;
 
   await waitForItemsUI();
 
@@ -295,8 +292,14 @@ async function startRun(config: UIConfig): Promise<void> {
     const deleted = await deleteNextUI(config, token);
     if (deleted) {
       emptyRuns = 0;
+      uiDeletedCount += 1;
+      setRunCountUI(uiDeletedCount);
     } else {
-      await loadMoreUI();
+      const navigated = await loadMoreUI();
+      if (navigated) {
+        uiIsRunning = false;
+        return;
+      }
       emptyRuns += 1;
     }
     window.scrollTo(0, document.body.scrollHeight);
@@ -307,7 +310,8 @@ async function startRun(config: UIConfig): Promise<void> {
     persisted.runOnLoad = false;
     saveConfigUI(persisted);
   }
-  alert(`No more matching submissions found. Filter used: ${config.summary}`);
+  clearRunCountUI();
+  alert(`No more matching submissions found. Total affected: ${uiDeletedCount}. Filter used: ${config.summary}`);
   uiIsRunning = false;
 }
 
@@ -348,7 +352,7 @@ async function deleteNextUI(config: UIConfig, token: string): Promise<boolean> {
 }
 
 async function graphqlPostRequestUI(body: string): Promise<Response> {
-  const response = await fetch("https://www.reddit.com/svc/shreddit/graphql", {
+  const response = await fetch("/svc/shreddit/graphql", {
     "credentials": "include",
     "headers": {
       "User-Agent": navigator.userAgent,
@@ -548,7 +552,14 @@ async function waitForItemsUI(timeoutMs: number = 8000, intervalMs: number = 400
   }
 }
 
-async function loadMoreUI(): Promise<void> {
+async function loadMoreUI(): Promise<boolean> {
+  const nextLink = document.querySelector(".next-button a, a[rel~='next']") as HTMLAnchorElement | null;
+  if (nextLink?.href) {
+    const url = new URL(nextLink.href);
+    url.searchParams.set("count", String(getRunCountUI()));
+    window.location.href = url.toString();
+    return true; // navigation
+  }
   for (let i = 0; i < UI_SCROLL_BURSTS; i++) {
     window.scrollBy(0, window.innerHeight * 0.8);
     await sleepUI(400);
@@ -556,6 +567,7 @@ async function loadMoreUI(): Promise<void> {
   window.scrollTo(0, document.body.scrollHeight);
   await sleepUI(800);
   await waitForItemsUI(3000, 300);
+  return false;
 }
 
 function sleepUI(ms: number): Promise<void> {
@@ -577,6 +589,20 @@ function loadConfigUI(): UIConfig | null {
 function saveConfigUI(config: UIConfig): void {
   const storage = config.persistence === "local" ? localStorage : sessionStorage;
   storage.setItem(UI_SESSION_KEY, JSON.stringify(config));
+}
+
+function getRunCountUI(): number {
+  const raw = sessionStorage.getItem(UI_RUN_COUNT_KEY);
+  const parsed = raw ? Number(raw) : 0;
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function setRunCountUI(count: number): void {
+  sessionStorage.setItem(UI_RUN_COUNT_KEY, String(count));
+}
+
+function clearRunCountUI(): void {
+  sessionStorage.removeItem(UI_RUN_COUNT_KEY);
 }
 
 async function loadCommunities(): Promise<string[]> {
